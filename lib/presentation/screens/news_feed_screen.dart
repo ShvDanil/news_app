@@ -1,10 +1,14 @@
+// news_feed_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:news_app/providers/news_provider.dart';
-import 'package:news_app/services/news_service.dart';
-import 'package:news_app/models/article_model.dart';
-import '../screens/news_details_screen.dart';
+import 'package:news_app/presentation/providers/news_provider.dart';
+import 'package:news_app/domain/article_model.dart';
 import 'package:logger/logger.dart';
+import 'package:news_app/presentation/providers/liked_news_interactor.dart';
+import 'package:news_app/di/di.dart';
+import 'package:news_app/domain/news_interactor.dart';
+import 'package:news_app/presentation/components/news_cell_component.dart';
+import 'package:news_app/presentation/screens/news_details_screen.dart';
 
 class NewsFeedScreen extends StatelessWidget {
   const NewsFeedScreen({Key? key}) : super(key: key);
@@ -20,7 +24,6 @@ class NewsFeedScreen extends StatelessWidget {
   }
 }
 
-// ignore: library private types in public api
 class NewsList extends StatefulWidget {
   const NewsList({Key? key}) : super(key: key);
 
@@ -29,7 +32,6 @@ class NewsList extends StatefulWidget {
 }
 
 class _NewsListState extends State<NewsList> {
-  final NewsService newsService = NewsService();
   final Logger _logger = Logger();
 
   @override
@@ -38,23 +40,29 @@ class _NewsListState extends State<NewsList> {
     fetchData();
   }
 
-  Future<void> fetchData() async {
+  Future<List<Article>?> fetchData() async {
     final provider = Provider.of<NewsProvider>(context, listen: false);
+    final newsInteractor = DiContainer.get<NewsInteractor>();
+
     try {
-      final articles = await newsService.getNews(
+      final articles = await newsInteractor.getNews(
           'a0bd7b3d69c64d3780be01d584e81efc', 'apple');
+
       if (articles != null && articles.isNotEmpty) {
         provider.setArticles(articles);
       }
-    } catch (error) {
+      return articles;
+    } catch (error, stackTrace) {
       _logger.e('Error fetching data');
+      _logger.e(stackTrace.toString());
+      return null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Article>?>(
-      future: newsService.getNews('a0bd7b3d69c64d3780be01d584e81efc', 'apple'),
+      future: fetchData(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -73,7 +81,7 @@ class _NewsListState extends State<NewsList> {
             itemCount: articles.length,
             itemBuilder: (context, index) {
               final article = articles[index];
-              return NewsListItem(article: article);
+              return NewsListItem(article: article, index: index);
             },
           );
         }
@@ -82,24 +90,54 @@ class _NewsListState extends State<NewsList> {
   }
 }
 
-class NewsListItem extends StatelessWidget {
+class NewsListItem extends StatefulWidget {
   final Article article;
+  final int index;
 
-  const NewsListItem({Key? key, required this.article}) : super(key: key);
+  const NewsListItem({Key? key, required this.article, required this.index})
+      : super(key: key);
+
+  @override
+  _NewsListItemState createState() => _NewsListItemState();
+}
+
+class _NewsListItemState extends State<NewsListItem> {
+  bool isLiked = false;
+  final likedNewsInteractor = DiContainer.get<LikedNewsInteractor>();
+
+  @override
+  void initState() {
+    super.initState();
+    final likedNewsInteractor = DiContainer.get<LikedNewsInteractor>();
+    isLiked = likedNewsInteractor.likedArticles.contains(widget.index);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(article.title ?? 'Нет заголовка'),
-      subtitle: Text(article.source?.name ?? 'Нет источника'),
-      trailing: const Icon(Icons.chevron_right),
+    final provider = Provider.of<NewsProvider>(context);
+
+    return NewsListTile(
+      title: widget.article.title ?? 'Нет заголовка',
+      subtitle: widget.article.source?.name ?? 'Нет источника',
+      isLiked: isLiked,
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => NewsDetailsScreen(article: article),
+            builder: (context) => NewsDetailsScreen(article: widget.article),
           ),
         );
+      },
+      onLikePressed: () {
+        setState(() {
+          isLiked = !isLiked;
+        });
+        if (isLiked) {
+          likedNewsInteractor.addLikedArticle(widget.index);
+        } else {
+          likedNewsInteractor.removeLikedArticle(widget.index);
+        }
+        provider.updateLikeStatus(widget.index, isLiked);
       },
     );
   }

@@ -1,9 +1,13 @@
 import 'package:dio/dio.dart';
-import 'package:news_app/models/article_model.dart';
+import 'package:news_app/domain/article_model.dart';
+import 'news_repository.dart';
 
-class NewsService {
-  final Dio _dio = Dio();
+class NewsRepositoryImpl implements NewsRepository {
+  final Dio _dio;
 
+  NewsRepositoryImpl(this._dio);
+
+  @override
   Future<List<Article>?> getNews(String apiKey, String theme) async {
     try {
       final response = await _dio.get(

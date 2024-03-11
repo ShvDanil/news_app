@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:news_app/models/article_model.dart';
+import 'package:news_app/domain/article_model.dart';
 
 class NewsProvider extends ChangeNotifier {
   List<Article> _articles = [];
@@ -10,5 +10,10 @@ class NewsProvider extends ChangeNotifier {
       _articles = articles;
       notifyListeners();
     }
+  }
+
+  void updateLikeStatus(int index, bool isLiked) {
+    _articles[index].isLiked = isLiked;
+    notifyListeners();
   }
 }

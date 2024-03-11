@@ -12,6 +12,7 @@ class Article {
   final String? urlToImage;
   final String? description;
   final String? content;
+  bool isLiked;
 
   Article({
     this.title,
@@ -22,6 +23,7 @@ class Article {
     this.urlToImage,
     this.description,
     this.content,
+    this.isLiked = false,
   });
 
   factory Article.fromJson(Map<String, dynamic> json) =>
